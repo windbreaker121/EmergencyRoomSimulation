@@ -1,12 +1,12 @@
 import java.util.Scanner;
 import java.util.Queue;
 
-class Patients implements Runnable{
+class Patient implements Runnable{
     private String name;
     private SharedWaitingRoom waitingRoom;
     
 
-    patients(String name, SharedWaitingRoom, SharedTreatRoom) {
+    patient(String name, SharedWaitingRoom, SharedTreatRoom) {
         this.name = name;
     }
 
@@ -83,17 +83,17 @@ public class Hospital {
         System.out.println("Number of doctors: ");
         int doctorsCount = scanner.nextInt();
 
-        System.out.println("Number of patients: ");
-        int patientscount = scanner.nextInt();
+        System.out.println("Number of patient: ");
+        int patientcount = scanner.nextInt();
 
         System.out.println("Starting Simulation..");
 
-        Queue<patients> waitingQueue = new LinkedList<>();
+        Queue<patient> waitingQueue = new LinkedList<>();
         WaitingRoom sharedWaitingRoom = new WaitingRoom(waitingRoomCapacity);
         
         // 
         Thread[] doctors = new Thread(doctorsCount);
-        Thread[] patients = new Thread(patientscount);
+        Thread[] patient = new Thread(patientcount);
 
         // add and start doctors
         for (int i = 0; i < doctorsCount; i++) {
@@ -102,10 +102,10 @@ public class Hospital {
             doctors[i].start();
         }
         
-        for (int i = 0; i < patientscount; i++){
-            Patients patient = new Patients("Patient-Number-" + i+1, SharedWaitingRoom, SharedTreatRoom);
-            patients[i] = new Thread(patient);
-            patients[i].start();
+        for (int i = 0; i < patientcount; i++){
+            Patient patient = new Patient("Patient-Number-" + i+1, SharedWaitingRoom, SharedTreatRoom);
+            patient[i] = new Thread(patient);
+            patient[i].start();
         }
 
     }
