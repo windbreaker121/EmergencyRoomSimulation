@@ -1,4 +1,3 @@
-// Owner: Person 4
 import java.util.concurrent.ThreadLocalRandom;
 
 public class Doctor implements Runnable {
@@ -17,10 +16,10 @@ public class Doctor implements Runnable {
     public void run() {
         try {
             while (true) {
-                // Idle until a patient is available.
-                Patient patient = waitingRoom.takePatient();
 
-                // null = hospital is closing.
+                Patient patient = waitingRoom.takePatient(); //from SharedWaitingRoom, blocks if empty
+
+                // null = hospital is closing
                 if (patient == null) {
                     Log.log(name + " is shutting down.");
                     break;
@@ -29,13 +28,13 @@ public class Doctor implements Runnable {
                 Log.log(name + " is assigned to " + patient.getName() + ".");
                 Log.log(name + " is trying to acquire a treatment room.");
 
-                TreatmentRoom room = treatmentRooms.requestRoom(name); // waits up to 3 s
+                TreatmentRoom room = treatmentRooms.requestRoom(name); // from SharedTreatRooom, waits up to 3s
 
                 if (room == null) {
                     Log.log(name + " could not acquire a treatment room.\n"
                             + name + " is sending " + patient.getName()
                             + " back to the waiting room.");
-                    patient.sendBack();           // patient waits outside by itself
+                    patient.sendBack();           // from Patient, sets treated = false 
                     Log.log(name + " is now available.");
                     continue;
                 }
@@ -49,7 +48,7 @@ public class Doctor implements Runnable {
                     treatmentRooms.returnRoom(name, room); // always release
                 }
 
-                patient.markTreated();
+                patient.markTreated(); // from Patient, sets treated = true
                 Log.log(name + " is now available.");
             }
         } catch (InterruptedException e) {

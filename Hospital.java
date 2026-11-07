@@ -48,15 +48,15 @@ public class Hospital {
         for (int i = 0; i < patientCount; i++) {
             patients[i] = new Thread(new Patient("P" + (i + 1), waitingRoom));
             patients[i].start();
-            Thread.sleep(300); // small stagger so arrivals are readable; may be removed
+            Thread.sleep(300);
         }
 
-        // A patient thread ends only after it has been treated and has left.
+        // A patient thread ends only after it has been treated and has left
         for (Thread t : patients) {
             t.join();
         }
 
-        // Everyone has been treated: wake the idle doctors so they shut down.
+        // Everyone has been treated: wake the idle doctors so they shut down
         waitingRoom.close(doctorCount);
         for (Thread t : doctors) {
             t.join();

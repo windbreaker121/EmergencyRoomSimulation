@@ -1,12 +1,10 @@
-// Owner: Person 3
 import java.util.LinkedList;
 import java.util.Queue;
 
-// Bounded buffer: patients are producers, doctors are consumers.
 class SharedWaitingRoom {
     private final Queue<Patient> queue = new LinkedList<>();
 
-    private final Semaphore seats;   // free seats       (init = capacity)
+    private final Semaphore seats;   // free seats       (init = capacity) 
     private final Semaphore items;   // waiting patients (init = 0)
     private final Semaphore mutex;   // protects queue   (init = 1)
 
@@ -19,7 +17,6 @@ class SharedWaitingRoom {
         this.mutex = new Semaphore(1);
     }
 
-    // Non-blocking attempt. Returns false (and changes nothing) if the room is full.
     boolean tryEnter(Patient p) throws InterruptedException {
         if (!seats.tryAcquire()) {
             return false;
@@ -28,7 +25,7 @@ class SharedWaitingRoom {
         return true;
     }
 
-    // Blocking: waits outside until a seat is free.
+    // waits outside until a seat is free
     void enter(Patient p) throws InterruptedException {
         seats.acquire();
         addToQueue(p);
@@ -47,7 +44,7 @@ class SharedWaitingRoom {
         items.release();
     }
 
-    // Doctors block here while idle. Returns null when the hospital is closing.
+    //returns null when the hospital is closing
     Patient takePatient() throws InterruptedException {
         items.acquire();
         mutex.acquire();
@@ -59,7 +56,6 @@ class SharedWaitingRoom {
         return p;
     }
 
-    // Wakes every idle doctor with a null "poison pill" so they can shut down.
     void close(int doctorCount) throws InterruptedException {
         for (int i = 0; i < doctorCount; i++) {
             mutex.acquire();

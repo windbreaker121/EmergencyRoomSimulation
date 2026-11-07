@@ -1,4 +1,3 @@
-// Owner: Person 5
 public class TreatmentRoom {
 
     private final String name;

@@ -1,6 +1,3 @@
-// Owner: Person 3
-// A patient never makes a doctor wait: if the doctor sends the patient back,
-// the PATIENT thread waits outside for a seat on its own.
 class Patient implements Runnable {
     private final String name;
     private final SharedWaitingRoom waitingRoom;
@@ -16,13 +13,11 @@ class Patient implements Runnable {
         return name;
     }
 
-    // Called by the doctor after treatment is finished.
     void markTreated() {
         treated = true;
         outcome.release();
     }
 
-    // Called by the doctor when no treatment room was acquired in time.
     void sendBack() {
         treated = false;
         outcome.release();
@@ -40,11 +35,10 @@ class Patient implements Runnable {
                     waitingRoom.enter(this);
                 }
 
-                outcome.acquire();       // wait for the doctor's verdict
+                outcome.acquire();       // wait for the doctor's permit
                 if (treated) {
                     break;
                 }
-                // Sent back: loop and try to re-enter the waiting room.
             }
 
             Log.log(name + " left.");

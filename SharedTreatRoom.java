@@ -1,6 +1,3 @@
-// Owner: Person 5
-// The pool of treatment rooms. A counting semaphore counts free rooms;
-// roomLock protects the per-room "available" flags.
 public class SharedTreatRoom {
 
     private static final long ACQUISITION_TIMEOUT_MS = 3000;
@@ -20,7 +17,7 @@ public class SharedTreatRoom {
         }
     }
 
-    // Tries to get a room within 3 seconds. Returns null on timeout.
+    // try to get a room within 3 seconds. Returns null on timeout
     public TreatmentRoom requestRoom(String doctorName) throws InterruptedException {
         if (!roomsAvailable.tryAcquire(ACQUISITION_TIMEOUT_MS)) {
             return null;
@@ -34,7 +31,7 @@ public class SharedTreatRoom {
                     return room;
                 }
             }
-            // Should never happen: a permit was granted but no room is free.
+            //a permit was granted but no room is free
             roomsAvailable.release();
             throw new IllegalStateException("Semaphore and treatment room states are inconsistent.");
         }
@@ -61,7 +58,7 @@ public class SharedTreatRoom {
             room.setAvailable(true);
             Log.log(doctorName + " released the treatment room (" + room.getName() + ").");
         }
-        // Release the permit after the room is marked free (and outside the lock).
+        // release the permit after the room is marked free
         roomsAvailable.release();
     }
 }
