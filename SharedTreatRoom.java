@@ -1,3 +1,6 @@
+// Owner: Person 5
+// The pool of treatment rooms. A counting semaphore counts free rooms;
+// roomLock protects the per-room "available" flags.
 public class SharedTreatRoom {
 
     private static final long ACQUISITION_TIMEOUT_MS = 3000;
@@ -7,94 +10,58 @@ public class SharedTreatRoom {
     private final Object roomLock = new Object();
 
     public SharedTreatRoom(int roomCount) {
-
         if (roomCount <= 0) {
-            throw new IllegalArgumentException(
-                    "Room count must be greater than zero."
-            );
+            throw new IllegalArgumentException("Room count must be greater than zero.");
         }
-
         roomsAvailable = new Semaphore(roomCount);
         rooms = new TreatmentRoom[roomCount];
-
         for (int i = 0; i < roomCount; i++) {
             rooms[i] = new TreatmentRoom("Room " + (i + 1));
         }
     }
 
-    public TreatmentRoom requestRoom(String doctorName)
-            throws InterruptedException {
-
-        boolean acquired = roomsAvailable.tryAcquire(
-                ACQUISITION_TIMEOUT_MS
-        );
-
-        if (!acquired) {
+    // Tries to get a room within 3 seconds. Returns null on timeout.
+    public TreatmentRoom requestRoom(String doctorName) throws InterruptedException {
+        if (!roomsAvailable.tryAcquire(ACQUISITION_TIMEOUT_MS)) {
             return null;
         }
 
         synchronized (roomLock) {
-
             for (TreatmentRoom room : rooms) {
-
                 if (room.isAvailable()) {
-
                     room.setAvailable(false);
-
-                    Log.log(
-                            doctorName + " acquired " + room.getName() + "."
-                    );
-
+                    Log.log(doctorName + " acquired a treatment room (" + room.getName() + ").");
                     return room;
                 }
             }
-
-            // Defensive recovery: a permit was acquired,
-            // but no available room was found.
+            // Should never happen: a permit was granted but no room is free.
             roomsAvailable.release();
-
-            throw new IllegalStateException(
-                    "Semaphore and treatment room states are inconsistent."
-            );
+            throw new IllegalStateException("Semaphore and treatment room states are inconsistent.");
         }
     }
 
-    public void returnRoom(TreatmentRoom room) {
-
+    public void returnRoom(String doctorName, TreatmentRoom room) {
         if (room == null) {
-            throw new IllegalArgumentException(
-                    "Cannot return a null treatment room."
-            );
+            throw new IllegalArgumentException("Cannot return a null treatment room.");
         }
-
         synchronized (roomLock) {
-
             boolean belongsToManager = false;
-
-            for (TreatmentRoom availableRoom : rooms) {
-                if (availableRoom == room) {
+            for (TreatmentRoom r : rooms) {
+                if (r == room) {
                     belongsToManager = true;
                     break;
                 }
             }
-
             if (!belongsToManager) {
-                throw new IllegalArgumentException(
-                        "This room does not belong to this hospital."
-                );
+                throw new IllegalArgumentException("This room does not belong to this hospital.");
             }
-
             if (room.isAvailable()) {
-                throw new IllegalStateException(
-                        "Treatment room has already been released."
-                );
+                throw new IllegalStateException("Treatment room has already been released.");
             }
-
             room.setAvailable(true);
-
-            roomsAvailable.release();
-
-            Log.log(room.getName() + " is now available.");
+            Log.log(doctorName + " released the treatment room (" + room.getName() + ").");
         }
+        // Release the permit after the room is marked free (and outside the lock).
+        roomsAvailable.release();
     }
 }
