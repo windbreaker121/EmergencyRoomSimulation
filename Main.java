@@ -1,7 +1,7 @@
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.PriorityQueue;
 import java.util.List;
+import java.util.PriorityQueue;
 import java.util.Scanner;
 
 class Log {
@@ -24,6 +24,7 @@ class Process {
     int finishTime = 0;
     int waitingTime = 0;
     int turnaroundTime = 0;
+    int responseTime = 0;
     State state = State.NEW;
 
     Process(int pid, String name, int arrivalTime, int burstTime) {
@@ -39,7 +40,6 @@ class ReadyQueue {
     private final PriorityQueue<Process> queue;
 
     ReadyQueue() {
-        // Shortest remainingTime first; tie-break by arrivalTime, then pid
         this.queue = new PriorityQueue<>(
                 Comparator.comparingInt((Process p) -> p.remainingTime)
                         .thenComparingInt(p -> p.arrivalTime)
@@ -77,7 +77,7 @@ class RunningQueue {
 
     void dispatch(Process p) {
         if (current != null) {
-            throw new IllegalStateException("Process " + current.name + "is already running");
+            throw new IllegalStateException("Process " + current.name + " is already running");
         }
         current = p;
         current.state = Process.State.RUNNING;
@@ -91,7 +91,7 @@ class RunningQueue {
         }
         return previous;
     }
-    
+
     Process finish() {
         Process finished = current;
         if (finished != null) {
@@ -102,79 +102,110 @@ class RunningQueue {
     }
 }
 
-
 public class Main {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
         Log.log("Number of processes: ");
         int processCount = scanner.nextInt();
 
-        List<process> processes = new ArrayList<>();
+        Log.log("Context switching time: ");
+        int contextSwitchTime = scanner.nextInt();
+
+        List<Process> processes = new ArrayList<>();
         for (int i = 0; i < processCount; i++) {
             String name = scanner.next();
             int arrivalTime = scanner.nextInt();
             int burstTime = scanner.nextInt();
-            processes.add(new process(i + 1, name, arrivalTime, burstTime, 0));
+            processes.add(new Process(i + 1, name, arrivalTime, burstTime));
         }
 
         ReadyQueue readyQueue = new ReadyQueue();
         RunningQueue runningQueue = new RunningQueue();
-        process running = null;
+
         int currentTime = 0;
         int completed = 0;
+        int csRemaining = 0;
+        Process lastDispatched = null;
 
         while (completed < processCount) {
             
-            for (process p : processes) {
-                if (p.state == Process.State.New && p.arrivalTime <= currentTime) {
+            // admit processes
+            for (Process p : processes) {
+                if (p.state == Process.State.NEW && p.arrivalTime <= currentTime) {
                     readyQueue.add(p);
                 }
             }
 
-            // preempting
-            Process currentlyRunning = runningQueue.peek();
-            Process shortest = readyQueue.peak();
-            if (currentlyRunning != null && shortest != null) {
-                if (currentlyRunning.remainingTime > shortest.remainingTime) {
-                    Process preempted = running.preempt();
-                    readyQueue.add(preempted);
-                }
-
-            }
-            else if (currentlyRunning == null && shortest != null) {
-                runningQueue.dispatch(readyQueue.poll());
-            }
-
-            // execute
-            currentlyRunning = runningQueue.peak();
-            if (currentlyRunning != null) {
-                if (currentlyRunning.startTime == -1) {
-                    currentlyRunning.startTime = currentTime;
-                }
+            // context switch
+            if (csRemaining > 0) {
+                csRemaining--;
                 currentTime++;
-                currentlyRunning.remainingTime--;
+                continue;
+            }
 
-                if (currentlyRunning.remainingTime == 0) {
+            // 3. Preempt if a ready process has strictly less remaining time
+            Process running = runningQueue.peek();
+            Process shortestReady = readyQueue.peek();
+
+            if (running != null && shortestReady != null
+                    && shortestReady.remainingTime < running.remainingTime) {
+                readyQueue.add(runningQueue.preempt());
+                running = null;
+            }
+
+            // 4. Dispatch next process if CPU is free
+            // if ct = 0: switching between processes takes no time
+            // so next processes starts immediately
+            if (running == null && shortestReady != null) {
+                if (lastDispatched != null && lastDispatched != shortestReady && contextSwitchTime > 0) {
+                    csRemaining = contextSwitchTime;
+                    continue;
+                }
+                Process next = readyQueue.poll();
+                runningQueue.dispatch(next);
+                lastDispatched = next;
+                running = next;
+            }
+
+            // 5. Execute 
+            if (running != null) {
+                if (running.startTime == -1) {
+                    running.startTime = currentTime;
+                }
+                running.remainingTime--;
+                currentTime++;
+
+                if (running.remainingTime == 0) {
                     Process finished = runningQueue.finish();
                     finished.finishTime = currentTime;
                     finished.turnaroundTime = finished.finishTime - finished.arrivalTime;
                     finished.waitingTime = finished.turnaroundTime - finished.burstTime;
+                    finished.responseTime = finished.startTime - finished.arrivalTime;
                     completed++;
                 }
-                else {
-                    current++;
-                }
+            } else {
+                currentTime++;
             }
-            
         }
-        
 
-        Log.log("Process\tArrival\tBurst\tFinish\tWaiting\tTurnaround");
+        int totalWaitingTime = 0;
+        int totalTurnaroundTime = 0;
+        int totalResponseTime = 0;
+
+        Log.log("\nProcess\tArrival\tBurst\tFinish\tWaiting\tTurnaround\tResponse");
         for (Process p : processes) {
-            System.out.printf("%s\t%d\t%d\t%d\t%d\t%d%n",
+            System.out.printf("%s\t%d\t%d\t%d\t%d\t%d\t\t%d%n",
                     p.name, p.arrivalTime, p.burstTime,
-                    p.finishTime, p.waitingTime, p.turnaroundTime);
+                    p.finishTime, p.waitingTime, p.turnaroundTime, p.responseTime);
+
+            totalWaitingTime += p.waitingTime;
+            totalTurnaroundTime += p.turnaroundTime;
+            totalResponseTime += p.responseTime;
         }
+
+        System.out.printf("%nAverage Waiting Time: %.2f%n", (double) totalWaitingTime / processCount);
+        System.out.printf("Average Turnaround Time: %.2f%n", (double) totalTurnaroundTime / processCount);
+        System.out.printf("Average Response Time: %.2f%n", (double) totalResponseTime / processCount);
 
         scanner.close();
     }
